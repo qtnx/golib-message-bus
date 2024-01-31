@@ -2,13 +2,14 @@ package impl
 
 import (
 	"context"
+	"reflect"
+	"strings"
+	"sync"
+
 	"github.com/golibs-starter/golib-message-bus/kafka/core"
 	"github.com/golibs-starter/golib-message-bus/kafka/properties"
 	"github.com/golibs-starter/golib/log"
-	coreUtils "github.com/golibs-starter/golib/utils"
 	"github.com/pkg/errors"
-	"strings"
-	"sync"
 )
 
 type SaramaConsumers struct {
@@ -32,7 +33,7 @@ func NewSaramaConsumers(
 
 	handlerMap := make(map[string]core.ConsumerHandler)
 	for _, handler := range handlers {
-		handlerMap[strings.ToLower(coreUtils.GetStructShortName(handler))] = handler
+		handlerMap[strings.ToLower(getStructShortName(handler))] = handler
 	}
 
 	kafkaConsumers := SaramaConsumers{
@@ -100,4 +101,26 @@ func (s *SaramaConsumers) Stop() {
 		}(consumer)
 	}
 	wg.Wait()
+}
+
+func getStructShortName(val interface{}) string {
+	if val == nil {
+		return ""
+	}
+	if t := reflect.TypeOf(val); t.Kind() == reflect.Ptr {
+		return t.Elem().Name()
+	} else if t.Kind() == reflect.Struct {
+		// Check if the Name method exists
+		if nameMethod, ok := t.MethodByName("Name"); ok {
+			v := reflect.ValueOf(val)
+			// Call the Name method and return its result if it returns a single string
+			results := nameMethod.Func.Call([]reflect.Value{v})
+			if len(results) == 1 && results[0].Kind() == reflect.String {
+				return results[0].String()
+			}
+		}
+		return t.Name()
+	} else {
+		return ""
+	}
 }

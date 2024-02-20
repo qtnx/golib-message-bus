@@ -1,6 +1,10 @@
 package properties
 
-import "github.com/golibs-starter/golib/config"
+import (
+	"strings"
+
+	"github.com/golibs-starter/golib/config"
+)
 
 func NewClient(loader config.Loader) (*Client, error) {
 	props := Client{}
@@ -29,6 +33,12 @@ func (p *Client) PostBinding() error {
 	if len(p.Admin.ClientId) == 0 {
 		p.Admin.ClientId = p.ClientId
 	}
+
+	// if commas in the bootstrap servers, then split them
+	if len(p.BootstrapServers) > 0 && strings.Contains(p.BootstrapServers[0], ",") {
+		p.BootstrapServers = strings.Split(p.BootstrapServers[0], ",")
+	}
+
 	if len(p.Admin.BootstrapServers) == 0 {
 		p.Admin.BootstrapServers = p.BootstrapServers
 	}

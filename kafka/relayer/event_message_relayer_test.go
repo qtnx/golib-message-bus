@@ -3,6 +3,9 @@ package relayer
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"testing"
+
 	kafkaConstant "github.com/golibs-starter/golib-message-bus/kafka/constant"
 	"github.com/golibs-starter/golib-message-bus/kafka/core"
 	"github.com/golibs-starter/golib-message-bus/kafka/properties"
@@ -13,7 +16,6 @@ import (
 	webEvent "github.com/golibs-starter/golib/web/event"
 	webLog "github.com/golibs-starter/golib/web/log"
 	assert "github.com/stretchr/testify/require"
-	"testing"
 )
 
 type TestProducer struct {
@@ -236,4 +238,115 @@ func TestEventMessageRelayer_WhenIsWebEventAndNotLogPayload_ShouldSuccess(t *tes
 	testEvent := webEvent.NewAbstractEvent(context.Background(), "TestEvent")
 	listener.Handle(testEvent)
 	assert.NotNil(t, producer.message)
+}
+
+func TestEventMessageRelayer_RegisterHandler(t *testing.T) {
+	producer := &TestProducer{}
+	appProps := &config.AppProperties{Name: "TestApp"}
+	eventProducerProps := &properties.EventProducer{EventMappings: map[string]properties.EventTopic{
+		"testevent": {TopicName: "test.topic"},
+	}}
+	eventProps := &event.Properties{}
+	converter := NewDefaultEventConverter(appProps, eventProducerProps)
+	relayer := NewEventMessageRelayer(producer, eventProducerProps, eventProps, converter).(*EventMessageRelayer)
+
+	// Test registering a single handler
+	handlerCalled := false
+	relayer.RegisterHandler("test.topic", func(msg *core.ConsumerMessage) error {
+		handlerCalled = true
+		assert.Equal(t, "test-message", string(msg.Value))
+		return nil
+	})
+
+	// Verify handler was registered
+	assert.Len(t, relayer.handlers["test.topic"], 1)
+
+	// Test handler execution
+	err := relayer.HandleMessage(&core.ConsumerMessage{
+		Topic: "test.topic",
+		Value: []byte("test-message"),
+	})
+	assert.NoError(t, err)
+	assert.True(t, handlerCalled)
+}
+
+func TestEventMessageRelayer_MultipleHandlers(t *testing.T) {
+	producer := &TestProducer{}
+	appProps := &config.AppProperties{Name: "TestApp"}
+	eventProducerProps := &properties.EventProducer{EventMappings: map[string]properties.EventTopic{
+		"testevent": {TopicName: "test.topic"},
+	}}
+	eventProps := &event.Properties{}
+	converter := NewDefaultEventConverter(appProps, eventProducerProps)
+	relayer := NewEventMessageRelayer(producer, eventProducerProps, eventProps, converter).(*EventMessageRelayer)
+
+	// Track handler calls
+	handler1Called := false
+	handler2Called := false
+
+	// Register multiple handlers
+	relayer.RegisterHandler("test.topic", func(msg *core.ConsumerMessage) error {
+		handler1Called = true
+		return nil
+	})
+
+	relayer.RegisterHandler("test.topic", func(msg *core.ConsumerMessage) error {
+		handler2Called = true
+		return nil
+	})
+
+	// Verify both handlers were registered
+	assert.Len(t, relayer.handlers["test.topic"], 2)
+
+	// Test handlers execution
+	err := relayer.HandleMessage(&core.ConsumerMessage{
+		Topic: "test.topic",
+		Value: []byte("test-message"),
+	})
+	assert.NoError(t, err)
+	assert.True(t, handler1Called)
+	assert.True(t, handler2Called)
+}
+
+func TestEventMessageRelayer_HandlerError(t *testing.T) {
+	producer := &TestProducer{}
+	appProps := &config.AppProperties{Name: "TestApp"}
+	eventProducerProps := &properties.EventProducer{EventMappings: map[string]properties.EventTopic{
+		"testevent": {TopicName: "test.topic"},
+	}}
+	eventProps := &event.Properties{}
+	converter := NewDefaultEventConverter(appProps, eventProducerProps)
+	relayer := NewEventMessageRelayer(producer, eventProducerProps, eventProps, converter).(*EventMessageRelayer)
+
+	// Register handler that returns error
+	expectedError := errors.New("handler error")
+	relayer.RegisterHandler("test.topic", func(msg *core.ConsumerMessage) error {
+		return expectedError
+	})
+
+	// Test handler execution
+	err := relayer.HandleMessage(&core.ConsumerMessage{
+		Topic: "test.topic",
+		Value: []byte("test-message"),
+	})
+	assert.Error(t, err)
+	assert.Equal(t, expectedError, err)
+}
+
+func TestEventMessageRelayer_NoHandlersForTopic(t *testing.T) {
+	producer := &TestProducer{}
+	appProps := &config.AppProperties{Name: "TestApp"}
+	eventProducerProps := &properties.EventProducer{EventMappings: map[string]properties.EventTopic{
+		"testevent": {TopicName: "test.topic"},
+	}}
+	eventProps := &event.Properties{}
+	converter := NewDefaultEventConverter(appProps, eventProducerProps)
+	relayer := NewEventMessageRelayer(producer, eventProducerProps, eventProps, converter).(*EventMessageRelayer)
+
+	// Test handling message for topic with no handlers
+	err := relayer.HandleMessage(&core.ConsumerMessage{
+		Topic: "nonexistent.topic",
+		Value: []byte("test-message"),
+	})
+	assert.NoError(t, err)
 }

@@ -1,14 +1,19 @@
 package relayer
 
 import (
+	"strings"
+	"sync"
+
 	"github.com/golibs-starter/golib-message-bus/kafka/core"
 	"github.com/golibs-starter/golib-message-bus/kafka/log"
 	"github.com/golibs-starter/golib-message-bus/kafka/properties"
 	"github.com/golibs-starter/golib/event"
 	coreLog "github.com/golibs-starter/golib/log"
 	"github.com/golibs-starter/golib/pubsub"
-	"strings"
+	"go.uber.org/zap"
 )
+
+type HandlerFunc func(message *core.ConsumerMessage) error
 
 type EventMessageRelayer struct {
 	producer               core.SyncProducer
@@ -16,6 +21,9 @@ type EventMessageRelayer struct {
 	eventProps             *event.Properties
 	notLogPayloadForEvents map[string]bool
 	eventConverter         EventConverter
+	// Add new fields for callback handling
+	handlers   map[string][]HandlerFunc
+	handlersMu sync.RWMutex
 }
 
 func NewEventMessageRelayer(
@@ -34,6 +42,8 @@ func NewEventMessageRelayer(
 		eventProps:             eventProps,
 		notLogPayloadForEvents: notLogPayloadForEvents,
 		eventConverter:         eventConverter,
+		// Initialize new fields
+		handlers: make(map[string][]HandlerFunc),
 	}
 }
 
@@ -71,4 +81,38 @@ func (e EventMessageRelayer) Handle(event pubsub.Event) {
 	}
 	logger.Infof("Success to produce to kafka partition [%d], offset [%d], message %s",
 		partition, offset, log.DescMessage(message, e.eventProps.Log.NotLogPayloadForEvents))
+}
+
+// RegisterHandler registers a callback function for a specific topic
+func (e *EventMessageRelayer) RegisterHandler(topicName string, handler HandlerFunc) {
+	e.handlersMu.Lock()
+	defer e.handlersMu.Unlock()
+
+	if e.handlers[topicName] == nil {
+		e.handlers[topicName] = make([]HandlerFunc, 0)
+	}
+	e.handlers[topicName] = append(e.handlers[topicName], handler)
+	coreLog.Infof("Registered new handler for topic [%s]", topicName)
+}
+
+// HandleMessage processes a message using registered handlers
+func (e *EventMessageRelayer) HandleMessage(message *core.ConsumerMessage) error {
+	e.handlersMu.RLock()
+	handlers, exists := e.handlers[message.Topic]
+	e.handlersMu.RUnlock()
+
+	if !exists {
+		return nil // No handlers registered for this topic
+	}
+
+	logger := coreLog.WithField(zap.String("topic", message.Topic))
+
+	for _, handler := range handlers {
+		if err := handler(message); err != nil {
+			logger.WithErrors(err).Error("Handler failed to process message")
+			return err
+		}
+	}
+
+	return nil
 }

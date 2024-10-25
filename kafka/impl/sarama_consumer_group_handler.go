@@ -1,7 +1,7 @@
 package impl
 
 import (
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 	"github.com/golibs-starter/golib-message-bus/kafka/core"
 	"github.com/golibs-starter/golib/log"
 	coreUtils "github.com/golibs-starter/golib/utils"

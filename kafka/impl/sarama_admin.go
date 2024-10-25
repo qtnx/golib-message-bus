@@ -2,7 +2,8 @@ package impl
 
 import (
 	"fmt"
-	"github.com/Shopify/sarama"
+
+	"github.com/IBM/sarama"
 	"github.com/golibs-starter/golib-message-bus/kafka/core"
 	"github.com/golibs-starter/golib-message-bus/kafka/properties"
 	"github.com/golibs-starter/golib/log"

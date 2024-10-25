@@ -1,11 +1,12 @@
 package impl
 
 import (
-	"github.com/Shopify/sarama"
-	"github.com/golibs-starter/golib-message-bus/kafka/core"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/IBM/sarama"
+	"github.com/golibs-starter/golib-message-bus/kafka/core"
 )
 
 func TestSaramaMapper_ToCoreHeaders(t *testing.T) {

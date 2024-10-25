@@ -3,13 +3,14 @@ package impl
 import (
 	"context"
 	"fmt"
-	"github.com/Shopify/sarama"
+	"strings"
+
+	"github.com/IBM/sarama"
 	"github.com/golibs-starter/golib-message-bus/kafka/core"
 	"github.com/golibs-starter/golib-message-bus/kafka/properties"
 	"github.com/golibs-starter/golib/log"
 	coreUtils "github.com/golibs-starter/golib/utils"
 	"github.com/pkg/errors"
-	"strings"
 )
 
 type SaramaConsumer struct {

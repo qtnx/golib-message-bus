@@ -350,3 +350,81 @@ func TestEventMessageRelayer_NoHandlersForTopic(t *testing.T) {
 	})
 	assert.NoError(t, err)
 }
+
+// Add this test
+func TestEventMessageRelayer_RegisterTypedHandler(t *testing.T) {
+	producer := &TestProducer{}
+	appProps := &config.AppProperties{Name: "TestApp"}
+	eventProducerProps := &properties.EventProducer{EventMappings: map[string]properties.EventTopic{
+		"testevent": {TopicName: "test.topic"},
+	}}
+	eventProps := &event.Properties{}
+	converter := NewDefaultEventConverter(appProps, eventProducerProps)
+	relayer := NewEventMessageRelayer(producer, eventProducerProps, eventProps, converter).(*EventMessageRelayer)
+
+	// Test struct
+	type UserEvent struct {
+		UserID   string            `json:"userId"`
+		Action   string            `json:"action"`
+		Metadata map[string]string `json:"metadata"`
+	}
+
+	// Test registering a typed handler
+	var receivedEvent UserEvent
+	RegisterTypedHandler(relayer, "test.topic", func(event UserEvent) error {
+		receivedEvent = event
+		return nil
+	})
+
+	// Create test message
+	testEvent := UserEvent{
+		UserID: "123",
+		Action: "login",
+		Metadata: map[string]string{
+			"ip": "127.0.0.1",
+		},
+	}
+	testEventBytes, err := json.Marshal(testEvent)
+	assert.NoError(t, err)
+
+	// Test handler execution
+	err = relayer.HandleMessage(&core.ConsumerMessage{
+		Topic: "test.topic",
+		Value: testEventBytes,
+	})
+	assert.NoError(t, err)
+
+	// Verify parsed event
+	assert.Equal(t, testEvent.UserID, receivedEvent.UserID)
+	assert.Equal(t, testEvent.Action, receivedEvent.Action)
+	assert.Equal(t, testEvent.Metadata["ip"], receivedEvent.Metadata["ip"])
+}
+
+// Add test for unmarshal error
+func TestEventMessageRelayer_RegisterTypedHandler_UnmarshalError(t *testing.T) {
+	producer := &TestProducer{}
+	appProps := &config.AppProperties{Name: "TestApp"}
+	eventProducerProps := &properties.EventProducer{EventMappings: map[string]properties.EventTopic{
+		"testevent": {TopicName: "test.topic"},
+	}}
+	eventProps := &event.Properties{}
+	converter := NewDefaultEventConverter(appProps, eventProducerProps)
+	relayer := NewEventMessageRelayer(producer, eventProducerProps, eventProps, converter).(*EventMessageRelayer)
+
+	type UserEvent struct {
+		UserID string `json:"userId"`
+	}
+
+	// Register typed handler
+	RegisterTypedHandler(relayer, "test.topic", func(event UserEvent) error {
+		return nil
+	})
+
+	// Test with invalid JSON
+	err := relayer.HandleMessage(&core.ConsumerMessage{
+		Topic: "test.topic",
+		Value: []byte("invalid json"),
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to unmarshal message")
+}

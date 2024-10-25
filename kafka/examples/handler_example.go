@@ -2,7 +2,7 @@ package examples
 
 import (
 	"fmt"
-	"github.com/golibs-starter/golib-message-bus/kafka/core"
+
 	"github.com/golibs-starter/golib-message-bus/kafka/relayer"
 	"go.uber.org/fx"
 )
@@ -12,19 +12,33 @@ type HandlerDeps struct {
 	Relayer *relayer.EventMessageRelayer
 }
 
-func RegisterHandlers(deps HandlerDeps) {
-	// Register handlers for specific topics
-	deps.Relayer.RegisterHandler("user-events", handleUserEvent)
-	deps.Relayer.RegisterHandler("user-events", auditLogUserEvent)
+type UserEvent struct {
+	UserID   string            `json:"userId"`
+	Action   string            `json:"action"`
+	Metadata map[string]string `json:"metadata"`
 }
 
-func handleUserEvent(msg *core.ConsumerMessage) error {
-	fmt.Printf("Processing user event: %s\n", string(msg.Value))
+type OrderEvent struct {
+	OrderID     string  `json:"orderId"`
+	TotalAmount float64 `json:"totalAmount"`
+	Status      string  `json:"status"`
+}
+
+func RegisterHandlers(deps HandlerDeps) {
+	// Register typed handlers
+	relayer.RegisterTypedHandler(deps.Relayer, "user-events", handleTypedUserEvent)
+	relayer.RegisterTypedHandler(deps.Relayer, "order-events", handleTypedOrderEvent)
+}
+
+func handleTypedUserEvent(event UserEvent) error {
+	fmt.Printf("Processing user event: UserID=%s, Action=%s\n",
+		event.UserID, event.Action)
 	return nil
 }
 
-func auditLogUserEvent(msg *core.ConsumerMessage) error {
-	fmt.Printf("Audit logging: %s\n", string(msg.Value))
+func handleTypedOrderEvent(event OrderEvent) error {
+	fmt.Printf("Processing order event: OrderID=%s, Amount=%.2f, Status=%s\n",
+		event.OrderID, event.TotalAmount, event.Status)
 	return nil
 }
 

@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"encoding/json"
 	"strings"
 	"sync"
 
@@ -11,6 +12,7 @@ import (
 	coreLog "github.com/golibs-starter/golib/log"
 	"github.com/golibs-starter/golib/pubsub"
 	"go.uber.org/zap"
+	"fmt"
 )
 
 type HandlerFunc func(message *core.ConsumerMessage) error
@@ -115,4 +117,15 @@ func (e *EventMessageRelayer) HandleMessage(message *core.ConsumerMessage) error
 	}
 
 	return nil
+}
+
+// Add this helper function instead
+func RegisterTypedHandler[T any](relayer *EventMessageRelayer, topicName string, handler func(message T) error) {
+	relayer.RegisterHandler(topicName, func(msg *core.ConsumerMessage) error {
+		var data T
+		if err := json.Unmarshal(msg.Value, &data); err != nil {
+			return fmt.Errorf("failed to unmarshal message: %w", err)
+		}
+		return handler(data)
+	})
 }

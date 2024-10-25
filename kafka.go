@@ -2,6 +2,7 @@ package golibmsg
 
 import (
 	"context"
+
 	"github.com/Shopify/sarama"
 	"github.com/golibs-starter/golib"
 	"github.com/golibs-starter/golib-message-bus/kafka/core"
@@ -166,4 +167,49 @@ func OnStopConsumerHook(in OnStopConsumerIn) {
 			return nil
 		},
 	})
+}
+
+func KafkaProducerWithConfigOpt(configFn func(*properties.Client, *properties.EventProducer)) fx.Option {
+	return fx.Options(
+		fx.Provide(fx.Annotated{
+			Name:   "sarama_producer_client",
+			Target: impl.NewSaramaProducerClient,
+		}),
+		fx.Provide(fx.Annotate(
+			impl.NewSaramaSyncProducer,
+			fx.As(new(core.SyncProducer)),
+			fx.ParamTags(`name:"sarama_producer_client"`),
+		)),
+		fx.Provide(fx.Annotate(
+			impl.NewSaramaAsyncProducer,
+			fx.As(new(core.AsyncProducer)),
+			fx.ParamTags(`name:"sarama_producer_client"`),
+		)),
+		fx.Provide(fx.Annotate(
+			relayer.NewDefaultEventConverter,
+			fx.As(new(relayer.EventConverter)),
+		)),
+		golib.ProvideProps(properties.NewEventProducer),
+		golib.ProvideEventListener(relayer.NewEventMessageRelayer),
+		fx.Invoke(handler.AsyncProducerErrorLogHandler),
+		fx.Invoke(handler.AsyncProducerSuccessLogHandler),
+		fx.Invoke(func(clientProps *properties.Client, producerProps *properties.EventProducer) {
+			if configFn != nil {
+				configFn(clientProps, producerProps)
+			}
+		}),
+	)
+}
+
+func KafkaConsumerWithConfigOpt(configFn func(*properties.Client, *properties.KafkaConsumer)) fx.Option {
+	return fx.Options(
+		golib.ProvideProps(properties.NewKafkaConsumer),
+		fx.Provide(NewSaramaConsumers),
+		fx.Invoke(OnStartConsumerHook),
+		fx.Invoke(func(clientProps *properties.Client, consumerProps *properties.KafkaConsumer) {
+			if configFn != nil {
+				configFn(clientProps, consumerProps)
+			}
+		}),
+	)
 }

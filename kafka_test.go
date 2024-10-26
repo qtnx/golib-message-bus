@@ -33,22 +33,34 @@ func TestKafkaProducerWithConfigOpt(t *testing.T) {
 
 		// When
 		app := fxtest.New(t,
-			fx.Provide(NewPropertiesLoader),
+			// fx.Provide(NewPropertiesLoader),
 			fx.Provide(func() *event.Properties {
 				return &event.Properties{}
 			}),
+
+			fx.Provide(func() *sarama.Config {
+				config := sarama.NewConfig()
+				if configFn != nil {
+					configFn(config)
+				}
+				return config
+			}),
 			golib.ProvideProps(func() *properties.Client {
 				return &properties.Client{
-					BootstrapServers: []string{"localhost:9092"},
+					BootstrapServers: []string{"localhost:29092"},
 					Version:          "3.0.0",
+					Producer: properties.Producer{
+						ClientId:         "test-producer",
+						BootstrapServers: []string{"localhost:29092"},
+					},
 				}
 			}),
 			// Add SaramaMapper dependency
 			fx.Provide(impl.NewSaramaMapper),
 			// Add DebugLogger dependency
 			fx.Provide(impl.NewDebugLogger),
-			// KafkaProducerOpt(),
-			KafkaProducerWithConfigOpt(configFn),
+			KafkaProducerOpt(),
+			// KafkaProducerWithConfigOpt(configFn),
 			fx.Invoke(func(config *sarama.Config) {
 				// Then
 				assert.Equal(t, expectedVersion, config.Version)
@@ -62,11 +74,17 @@ func TestKafkaProducerWithConfigOpt(t *testing.T) {
 		// When
 		app := fxtest.New(t,
 			fx.Provide(NewPropertiesLoader),
+			fx.Provide(func() *sarama.Config {
+				return sarama.NewConfig()
+			}),
 			// Provide required dependencies
 			golib.ProvideProps(func() *properties.Client {
 				return &properties.Client{
 					BootstrapServers: []string{"localhost:9092"},
 					Version:          "2.0.0",
+					Producer: properties.Producer{
+						BootstrapServers: []string{"localhost:29092"},
+					},
 				}
 			}),
 			fx.Provide(func() *event.Properties {
@@ -106,9 +124,21 @@ func TestKafkaConsumerWithConfigOpt(t *testing.T) {
 					Version:          "3.0.0",
 				}
 			}),
+
+			fx.Provide(func() *sarama.Config {
+				config := sarama.NewConfig()
+				if configFn != nil {
+					configFn(config)
+				}
+				return config
+			}),
+
+			fx.Provide(func() *sarama.Config {
+				return sarama.NewConfig()
+			}),
 			// Add SaramaMapper dependency
 			fx.Provide(impl.NewSaramaMapper),
-			KafkaConsumerWithConfigOpt(configFn),
+			KafkaConsumerOpt(),
 			fx.Invoke(func(config *sarama.Config) {
 				// Then
 				assert.Equal(t, expectedVersion, config.Version)
@@ -130,7 +160,7 @@ func TestKafkaConsumerWithConfigOpt(t *testing.T) {
 			}),
 			// Add SaramaMapper dependency
 			fx.Provide(impl.NewSaramaMapper),
-			KafkaConsumerWithConfigOpt(nil),
+			KafkaConsumerOpt(),
 			fx.Invoke(func(config *sarama.Config) {
 				// Then
 				assert.NotNil(t, config)

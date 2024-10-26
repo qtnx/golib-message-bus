@@ -15,7 +15,19 @@ import (
 )
 
 func KafkaCommonOpt() fx.Option {
+	return KafkaCommonOptWithConfig(nil)
+}
+
+// KafkaCommonOptWithConfig is used to provide a custom config for kafka
+func KafkaCommonOptWithConfig(configFn func(*sarama.Config)) fx.Option {
 	return fx.Options(
+		fx.Provide(func() *sarama.Config {
+			config := sarama.NewConfig()
+			if configFn != nil {
+				configFn(config)
+			}
+			return config
+		}),
 		golib.ProvideProps(properties.NewClient),
 		fx.Provide(impl.NewSaramaMapper),
 		fx.Provide(impl.NewDebugLogger),
@@ -170,30 +182,4 @@ func OnStopConsumerHook(in OnStopConsumerIn) {
 			return nil
 		},
 	})
-}
-
-func KafkaProducerWithConfigOpt(configFn func(*sarama.Config)) fx.Option {
-	return fx.Options(
-		fx.Provide(func() *sarama.Config {
-			config := sarama.NewConfig()
-			if configFn != nil {
-				configFn(config)
-			}
-			return config
-		}),
-		KafkaProducerOpt(),
-	)
-}
-
-func KafkaConsumerWithConfigOpt(configFn func(*sarama.Config)) fx.Option {
-	return fx.Options(
-		fx.Provide(func() *sarama.Config {
-			config := sarama.NewConfig()
-			if configFn != nil {
-				configFn(config)
-			}
-			return config
-		}),
-		KafkaConsumerOpt(),
-	)
 }

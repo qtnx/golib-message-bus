@@ -23,7 +23,7 @@ func (s SaramaAdmin) CreateTopics(configurations []core.TopicConfiguration) erro
 		log.Infof("Skip create Kafka topics. No topics are defined")
 		return nil
 	}
-	config, err := CreateCommonSaramaConfig(s.props.Version, s.props.Admin)
+	config, err := CreateCommonSaramaConfig(nil, s.props.Version, s.props.Admin)
 	if err != nil {
 		return errors.WithMessage(err, "create sarama config error")
 	}
@@ -61,7 +61,7 @@ func (s SaramaAdmin) DeleteTopics(topics []string) error {
 		log.Infof("No topics are defined for deletion")
 		return nil
 	}
-	config, err := CreateCommonSaramaConfig(s.props.Version, s.props.Admin)
+	config, err := CreateCommonSaramaConfig(nil, s.props.Version, s.props.Admin)
 	if err != nil {
 		return errors.WithMessage(err, "create sarama config error")
 	}
@@ -95,7 +95,7 @@ func (s SaramaAdmin) DeleteGroups(groupIds []string) error {
 		log.Infof("No group ids are defined for deletion")
 		return nil
 	}
-	config, err := CreateCommonSaramaConfig(s.props.Version, s.props.Admin)
+	config, err := CreateCommonSaramaConfig(nil, s.props.Version, s.props.Admin)
 	if err != nil {
 		return errors.WithMessage(err, "create sarama config error")
 	}

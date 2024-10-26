@@ -171,24 +171,6 @@ func OnStopConsumerHook(in OnStopConsumerIn) {
 
 func KafkaProducerWithConfigOpt(configFn func(*sarama.Config)) fx.Option {
 	return fx.Options(
-		fx.Provide(fx.Annotated{
-			Name:   "sarama_producer_client",
-			Target: impl.NewSaramaProducerClient,
-		}),
-		fx.Provide(fx.Annotate(
-			impl.NewSaramaSyncProducer,
-			fx.As(new(core.SyncProducer)),
-			fx.ParamTags(`name:"sarama_producer_client"`),
-		)),
-		fx.Provide(fx.Annotate(
-			impl.NewSaramaAsyncProducer,
-			fx.As(new(core.AsyncProducer)),
-			fx.ParamTags(`name:"sarama_producer_client"`),
-		)),
-		fx.Provide(fx.Annotate(
-			relayer.NewDefaultEventConverter,
-			fx.As(new(relayer.EventConverter)),
-		)),
 		fx.Provide(func() *sarama.Config {
 			config := sarama.NewConfig()
 			if configFn != nil {
@@ -196,9 +178,7 @@ func KafkaProducerWithConfigOpt(configFn func(*sarama.Config)) fx.Option {
 			}
 			return config
 		}),
-		golib.ProvideEventListener(relayer.NewEventMessageRelayer),
-		fx.Invoke(handler.AsyncProducerErrorLogHandler),
-		fx.Invoke(handler.AsyncProducerSuccessLogHandler),
+		KafkaProducerOpt(),
 	)
 }
 
@@ -211,7 +191,6 @@ func KafkaConsumerWithConfigOpt(configFn func(*sarama.Config)) fx.Option {
 			}
 			return config
 		}),
-		fx.Provide(NewSaramaConsumers),
-		fx.Invoke(OnStartConsumerHook),
+		KafkaConsumerOpt(),
 	)
 }

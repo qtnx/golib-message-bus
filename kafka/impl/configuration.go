@@ -16,8 +16,15 @@ type CommonProperties interface {
 	GetTls() *properties.Tls
 }
 
-func CreateCommonSaramaConfig(version string, props CommonProperties) (*sarama.Config, error) {
+func CreateCommonSaramaConfig(
+	existingConfig *sarama.Config,
+	version string,
+	props CommonProperties,
+) (*sarama.Config, error) {
 	config := sarama.NewConfig()
+	if existingConfig != nil {
+		config = existingConfig
+	}
 	configVersion, err := sarama.ParseKafkaVersion(version)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Error parsing Kafka version")

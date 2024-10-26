@@ -6,8 +6,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-func NewSaramaProducerClient(globalProps *properties.Client) (sarama.Client, error) {
-	config, err := CreateCommonSaramaConfig(globalProps.Version, globalProps.Producer)
+func NewSaramaProducerClient(
+	globalProps *properties.Client,
+	existingConfig *sarama.Config,
+) (sarama.Client, error) {
+	config, err := CreateCommonSaramaConfig(existingConfig, globalProps.Version, globalProps.Producer)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Create sarama config error")
 	}

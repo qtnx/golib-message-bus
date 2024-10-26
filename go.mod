@@ -7,7 +7,7 @@ require (
 	github.com/golibs-starter/golib v1.0.0
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.9.0
-	go.uber.org/fx v1.20.0
+	go.uber.org/fx v1.20.1
 	go.uber.org/zap v1.26.0
 )
 

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/IBM/sarama"
 	"github.com/golibs-starter/golib-message-bus/kafka/core"
 	"github.com/golibs-starter/golib-message-bus/kafka/properties"
 	"github.com/golibs-starter/golib/log"
@@ -26,6 +27,7 @@ func NewSaramaConsumers(
 	consumerProps *properties.KafkaConsumer,
 	mapper *SaramaMapper,
 	handlers []core.ConsumerHandler,
+	existingConfig *sarama.Config,
 ) (*SaramaConsumers, error) {
 	if len(consumerProps.HandlerMappings) < 1 {
 		return nil, errors.New("[SaramaConsumers] Missing handler mapping")
@@ -45,14 +47,17 @@ func NewSaramaConsumers(
 		unready:            make(chan bool),
 	}
 
-	if err := kafkaConsumers.init(handlerMap); err != nil {
+	if err := kafkaConsumers.init(handlerMap, existingConfig); err != nil {
 		return nil, errors.WithMessage(err, "[SaramaConsumers] Error when init kafka consumers")
 	}
 
 	return &kafkaConsumers, nil
 }
 
-func (s *SaramaConsumers) init(handlerMap map[string]core.ConsumerHandler) error {
+func (s *SaramaConsumers) init(
+	handlerMap map[string]core.ConsumerHandler,
+	existingConfig *sarama.Config,
+) error {
 	for key, config := range s.kafkaConsumerProps.HandlerMappings {
 		if !config.Enable {
 			log.Debugf("Kafka consumer key [%s] is not enabled", key)
@@ -64,7 +69,13 @@ func (s *SaramaConsumers) init(handlerMap map[string]core.ConsumerHandler) error
 			log.Debugf("Kafka consumer key [%s] is not exists in handler list", key)
 			continue
 		}
-		saramaConsumer, err := NewSaramaConsumer(s.mapper, s.clientProps, &config, handler)
+		saramaConsumer, err := NewSaramaConsumer(
+			s.mapper,
+			s.clientProps,
+			&config,
+			handler,
+			existingConfig,
+		)
 		if err != nil {
 			return err
 		}

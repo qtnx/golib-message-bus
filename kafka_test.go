@@ -27,9 +27,9 @@ func TestKafkaProducerWithConfigOpt(t *testing.T) {
 	t.Run("should apply custom config when configFn is provided", func(t *testing.T) {
 		// Given
 		expectedVersion := sarama.V3_0_0_0
-		/* configFn := func(config *sarama.Config) {
+		configFn := func(config *sarama.Config) {
 			config.Version = expectedVersion
-		} */
+		}
 
 		// When
 		app := fxtest.New(t,
@@ -47,8 +47,8 @@ func TestKafkaProducerWithConfigOpt(t *testing.T) {
 			fx.Provide(impl.NewSaramaMapper),
 			// Add DebugLogger dependency
 			fx.Provide(impl.NewDebugLogger),
-			KafkaProducerOpt(),
-			// KafkaProducerWithConfigOpt(configFn),
+			// KafkaProducerOpt(),
+			KafkaProducerWithConfigOpt(configFn),
 			fx.Invoke(func(config *sarama.Config) {
 				// Then
 				assert.Equal(t, expectedVersion, config.Version)

@@ -95,14 +95,17 @@ func OnStopConsumerOpt() fx.Option {
 
 type KafkaConsumersIn struct {
 	fx.In
-	GlobalProps   *properties.Client
-	ConsumerProps *properties.KafkaConsumer
-	SaramaMapper  *impl.SaramaMapper
-	Handlers      []core.ConsumerHandler `group:"kafka_consumer_handler"`
+	GlobalProps    *properties.Client
+	ConsumerProps  *properties.KafkaConsumer
+	SaramaMapper   *impl.SaramaMapper
+	Handlers       []core.ConsumerHandler `group:"kafka_consumer_handler"`
+	ExistingConfig *sarama.Config         `optional:"true"`
 }
 
 func NewSaramaConsumers(in KafkaConsumersIn) (core.Consumer, error) {
-	return impl.NewSaramaConsumers(in.GlobalProps, in.ConsumerProps, in.SaramaMapper, in.Handlers)
+	return impl.NewSaramaConsumers(
+		in.GlobalProps, in.ConsumerProps, in.SaramaMapper, in.Handlers, in.ExistingConfig,
+	)
 }
 
 func ProvideConsumer(handler interface{}) fx.Option {

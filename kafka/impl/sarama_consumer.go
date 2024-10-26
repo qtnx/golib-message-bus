@@ -28,9 +28,10 @@ func NewSaramaConsumer(
 	clientProps *properties.Client,
 	topicConsumer *properties.TopicConsumer,
 	handler core.ConsumerHandler,
+	existingConfig *sarama.Config,
 ) (*SaramaConsumer, error) {
 	handlerName := coreUtils.GetStructShortName(handler)
-	client, err := NewSaramaConsumerClient(clientProps)
+	client, err := NewSaramaConsumerClient(clientProps, existingConfig)
 	if err != nil {
 		return nil, errors.WithMessage(err,
 			fmt.Sprintf("Error when create sarama consumer client for handler [%s]", handlerName))

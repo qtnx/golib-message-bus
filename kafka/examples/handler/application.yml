@@ -1,0 +1,23 @@
+golibs:
+  kafka:
+    client:
+      brokers:
+        - localhost:9092
+      debug: true
+
+    event-producer:
+      enabled: true
+      topics:
+        - name: user-events
+          num-partitions: 1
+          replication-factor: 1
+        - name: order-events
+          num-partitions: 1
+          replication-factor: 1
+
+    consumer:
+      enabled: true
+      group-id: example-group
+      topics:
+        - user-events
+        - order-events

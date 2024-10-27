@@ -3,8 +3,11 @@ package relayer
 import (
 	"context"
 	"encoding/json"
+	"strings"
+
 	kafkaConstant "github.com/golibs-starter/golib-message-bus/kafka/constant"
 	"github.com/golibs-starter/golib-message-bus/kafka/core"
+	"github.com/golibs-starter/golib-message-bus/kafka/global"
 	"github.com/golibs-starter/golib-message-bus/kafka/properties"
 	"github.com/golibs-starter/golib/config"
 	"github.com/golibs-starter/golib/pubsub"
@@ -12,7 +15,6 @@ import (
 	webEvent "github.com/golibs-starter/golib/web/event"
 	webLog "github.com/golibs-starter/golib/web/log"
 	"github.com/pkg/errors"
-	"strings"
 )
 
 type DefaultEventConverter struct {
@@ -33,6 +35,12 @@ func NewDefaultEventConverter(
 func (d DefaultEventConverter) Convert(event pubsub.Event) (*core.Message, error) {
 	lcEvent := strings.ToLower(event.Name())
 	eventTopic := d.eventProducerProps.EventMappings[lcEvent]
+	if eventTopic.TopicName == "" {
+		eventTopic.TopicName = global.EventTopicMappingInstance.GetTopic(lcEvent)
+	}
+	if eventTopic.TopicName == "" {
+		return nil, errors.Errorf("no topic found for event [%s]", event.Name())
+	}
 	msgBytes, err := json.Marshal(event)
 	if err != nil {
 		return nil, errors.WithMessage(err, "marshalling event failed")

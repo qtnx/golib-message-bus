@@ -6,6 +6,7 @@ import (
 	"github.com/IBM/sarama"
 	"github.com/golibs-starter/golib"
 	"github.com/golibs-starter/golib-message-bus/kafka/core"
+	"github.com/golibs-starter/golib-message-bus/kafka/global"
 	"github.com/golibs-starter/golib-message-bus/kafka/handler"
 	"github.com/golibs-starter/golib-message-bus/kafka/impl"
 	"github.com/golibs-starter/golib-message-bus/kafka/properties"
@@ -29,6 +30,12 @@ func KafkaCommonOptWithConfig(configFn func(*sarama.Config)) fx.Option {
 			return config
 		}),
 		golib.ProvideProps(properties.NewClient),
+		KafkaCommonOptNoClient(),
+	)
+}
+
+func KafkaCommonOptNoClient() fx.Option {
+	return fx.Options(
 		fx.Provide(impl.NewSaramaMapper),
 		fx.Provide(impl.NewDebugLogger),
 		fx.Invoke(func(props *properties.Client, debugLogger *impl.DebugLogger) {
@@ -115,6 +122,23 @@ type KafkaConsumersIn struct {
 }
 
 func NewSaramaConsumers(in KafkaConsumersIn) (core.Consumer, error) {
+	// merge with global topic consumer
+	globalTopicConsumerMap := global.SubscriberTopicInstance.GetTopicConsumerMap()
+
+	log.Infof("[NewSaramaConsumers] Global topic consumer map: %v in %v", globalTopicConsumerMap, in.ConsumerProps.HandlerMappings)
+
+	if in.ConsumerProps.HandlerMappings == nil {
+		in.ConsumerProps.HandlerMappings = make(map[string]properties.TopicConsumer)
+	}
+	if globalTopicConsumerMap != nil {
+		for topic, consumer := range globalTopicConsumerMap {
+			if _, exists := in.ConsumerProps.HandlerMappings[topic]; exists {
+				continue
+			}
+			in.ConsumerProps.HandlerMappings[topic] = consumer
+		}
+	}
+
 	return impl.NewSaramaConsumers(
 		in.GlobalProps, in.ConsumerProps, in.SaramaMapper, in.Handlers, in.ExistingConfig,
 	)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/IBM/sarama"
 	"github.com/golibs-starter/golib-message-bus/kafka/core"
+	"github.com/golibs-starter/golib-message-bus/kafka/global"
 	"github.com/golibs-starter/golib-message-bus/kafka/properties"
 	"github.com/golibs-starter/golib/log"
 	"github.com/pkg/errors"
@@ -30,8 +31,11 @@ func NewSaramaConsumers(
 	existingConfig *sarama.Config,
 ) (*SaramaConsumers, error) {
 	if len(consumerProps.HandlerMappings) < 1 {
-		return nil, errors.New("[SaramaConsumers] Missing handler mapping")
+		log.Warn("[SaramaConsumers] Missing handler mapping")
+		// return nil, nil
+		consumerProps.HandlerMappings = map[string]properties.TopicConsumer{}
 	}
+	log.Infof("[SaramaConsumers] Handler mappings: %v", consumerProps.HandlerMappings)
 
 	handlerMap := make(map[string]core.ConsumerHandler)
 	for _, handler := range handlers {
@@ -66,8 +70,12 @@ func (s *SaramaConsumers) init(
 		key = strings.ToLower(strings.TrimSpace(key))
 		handler, exists := handlerMap[key]
 		if !exists {
-			log.Debugf("Kafka consumer key [%s] is not exists in handler list", key)
-			continue
+			if h := global.SubscriberTopicInstance.GetHandler(key); h != nil {
+				handler = h
+			} else {
+				log.Debugf("Kafka consumer key [%s] is not exists in handler list", key)
+				continue
+			}
 		}
 		saramaConsumer, err := NewSaramaConsumer(
 			s.mapper,

@@ -4,7 +4,6 @@ import (
 	"github.com/IBM/sarama"
 	"github.com/golibs-starter/golib-message-bus/kafka/core"
 	"github.com/golibs-starter/golib/log"
-	coreUtils "github.com/golibs-starter/golib/utils"
 )
 
 type ConsumerGroupHandler struct {
@@ -18,7 +17,7 @@ type ConsumerGroupHandler struct {
 func NewConsumerGroupHandler(client sarama.Client, handler core.ConsumerHandler, mapper *SaramaMapper) *ConsumerGroupHandler {
 	return &ConsumerGroupHandler{
 		handler:     handler,
-		handlerName: coreUtils.GetStructShortName(handler),
+		handlerName: getStructShortName(handler),
 		client:      client,
 		mapper:      mapper,
 		unready:     make(chan bool),

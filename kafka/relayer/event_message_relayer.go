@@ -5,14 +5,16 @@ import (
 	"strings"
 	"sync"
 
+	"fmt"
+
 	"github.com/golibs-starter/golib-message-bus/kafka/core"
+	"github.com/golibs-starter/golib-message-bus/kafka/global"
 	"github.com/golibs-starter/golib-message-bus/kafka/log"
 	"github.com/golibs-starter/golib-message-bus/kafka/properties"
 	"github.com/golibs-starter/golib/event"
 	coreLog "github.com/golibs-starter/golib/log"
 	"github.com/golibs-starter/golib/pubsub"
 	"go.uber.org/zap"
-	"fmt"
 )
 
 type HandlerFunc func(message *core.ConsumerMessage) error
@@ -49,16 +51,33 @@ func NewEventMessageRelayer(
 	}
 }
 
-func (e EventMessageRelayer) Supports(event pubsub.Event) bool {
+// Supports checks if the given event is supported by the EventMessageRelayer.
+// It returns true if the event is supported, otherwise false.
+//
+// Parameters:
+//
+//	event (pubsub.Event): The event to be checked.
+//
+// Returns:
+//
+//	bool: True if the event is supported, false otherwise.
+func (e *EventMessageRelayer) Supports(event pubsub.Event) bool {
 	logger := coreLog.WithCtx(event.Context())
 	lcEvent := strings.ToLower(event.Name())
+
+	// If the topic is already set in the global mapping, use it
+	topic := global.EventTopicMappingInstance.GetTopic(lcEvent)
+	if topic != "" {
+		return true
+	}
+
 	eventTopic, exists := e.eventProducerProps.EventMappings[lcEvent]
 	if !exists {
-		logger.Debugf("Produce Kafka message is skip, no mapping found for event [%s]", event.Name())
+		logger.Warnf("Produce Kafka message is skip, no mapping found for event [%s]", event.Name())
 		return false
 	}
 	if eventTopic.Disable {
-		logger.Debugf("Produce Kafka message is disabled for event [%s]", event.Name())
+		logger.Warnf("Produce Kafka message is disabled for event [%s]", event.Name())
 		return false
 	}
 	if eventTopic.TopicName == "" {
@@ -68,7 +87,7 @@ func (e EventMessageRelayer) Supports(event pubsub.Event) bool {
 	return true
 }
 
-func (e EventMessageRelayer) Handle(event pubsub.Event) {
+func (e *EventMessageRelayer) Handle(event pubsub.Event) {
 	logger := coreLog.WithCtx(event.Context())
 	message, err := e.eventConverter.Convert(event)
 	if err != nil {
@@ -86,14 +105,14 @@ func (e EventMessageRelayer) Handle(event pubsub.Event) {
 }
 
 // RegisterHandler registers a callback function for a specific topic
-func (e *EventMessageRelayer) RegisterHandler(topicName string, handler HandlerFunc) {
+func (e *EventMessageRelayer) RegisterHandler(topicName string, handler any) {
 	e.handlersMu.Lock()
 	defer e.handlersMu.Unlock()
 
 	if e.handlers[topicName] == nil {
 		e.handlers[topicName] = make([]HandlerFunc, 0)
 	}
-	e.handlers[topicName] = append(e.handlers[topicName], handler)
+	e.handlers[topicName] = append(e.handlers[topicName], handler.(HandlerFunc))
 	coreLog.Infof("Registered new handler for topic [%s]", topicName)
 }
 
@@ -120,7 +139,7 @@ func (e *EventMessageRelayer) HandleMessage(message *core.ConsumerMessage) error
 }
 
 // Add this helper function instead
-func RegisterTypedHandler[T any](relayer *EventMessageRelayer, topicName string, handler func(message T) error) {
+func RegisterTypedHandler[T any](relayer pubsub.Subscriber, topicName string, handler func(message T) error) {
 	relayer.RegisterHandler(topicName, func(msg *core.ConsumerMessage) error {
 		var data T
 		if err := json.Unmarshal(msg.Value, &data); err != nil {

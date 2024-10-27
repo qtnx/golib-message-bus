@@ -12,7 +12,7 @@ Base setup, see [GoLib Instruction](https://github.com/golibs-starter/golib#read
 Both `go get` and `go mod` are supported.
 
 ```shell
-go get github.com/golibs-starter/golib-message-bus
+go get github.com/qtnx/golib-message-bus
 ```
 
 ### Usage
@@ -23,9 +23,9 @@ Using `fx.Option` to include dependencies for injection.
 package main
 
 import (
-	"github.com/golibs-starter/golib-message-bus"
-	"github.com/golibs-starter/golib-message-bus/kafka/core"
-	"github.com/golibs-starter/golib-message-bus/testutil"
+	"github.com/qtnx/golib-message-bus"
+	"github.com/qtnx/golib-message-bus/kafka/core"
+	"github.com/qtnx/golib-message-bus/testutil"
 	"go.uber.org/fx"
 )
 
@@ -93,6 +93,48 @@ func (c CustomConsumer) HandlerFunc(message *core.ConsumerMessage) {
 
 func (c CustomConsumer) Close() {
 	// Will run when application stop
+}
+
+```
+
+### Use pubsub to publish/subscribe events
+
+See: `examples/handler/main.go`
+
+#### Publish event:
+
+```go
+
+type OrderEvent struct {
+	OrderID     string  `json:"orderId"`
+	TotalAmount float64 `json:"totalAmount"`
+	Status      string  `json:"status"`
+}
+
+golibmsg.PublishToTopic(context.Background(), "orders", OrderEvent{
+	OrderID:     "order456",
+	TotalAmount: 99.99,
+	Status:      "completed",
+})
+```
+
+
+#### Subscribe to topic:
+
+```go
+type OrderEvent struct {
+	OrderID     string  `json:"orderId"`
+	TotalAmount float64 `json:"totalAmount"`
+	Status      string  `json:"status"`
+}
+
+func handleTypedOrderEvent(event OrderEvent) {
+	fmt.Printf("[MSG] Processing order event: OrderID=%s, Amount=%.2f, Status=%s\n",
+		event.OrderID, event.TotalAmount, event.Status)
+}
+
+func init() {
+	golibmsg.SubscribeToTopic(context.Background(), "orders", handleTypedOrderEvent)
 }
 
 ```
